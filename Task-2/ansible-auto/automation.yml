@@ -1,0 +1,118 @@
+---
+- name: Deploy Web Servers on AWS
+  hosts: all
+  become: true
+  gather_facts: false
+  
+  vars_files:
+    - vars.yml
+
+  tasks:
+    - name: Create EC2 Instances
+      community.aws.ec2_instance:
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+        key_name: "{{ keypair_name }}"
+        group: "{{ security_group_id }}"
+        instance_type: "{{ instance_type }}"
+        image_id: "{{ ami_id }}"
+        wait: true
+        count: 2
+        vpc_subnet_id: "{{ subnet_id }}"
+        assign_public_ip: no
+        region: "{{ region }}"
+        instance_tags:
+          - key: Name
+            value: "WebServer"
+        volumes:
+          - device_name: /dev/sda1
+            volume_size: 8
+            delete_on_termination: true
+      register: ec2
+
+    - name: Wait for EC2 Instances to be Running
+      wait_for:
+        timeout: 300
+        delay: 10
+        host: "{{ item.public_ip }}"
+        port: 22
+      with_items: "{{ ec2.instances }}"
+
+    - name: Set Fact for Instance IPs
+      set_fact:
+        instance_ips: "{{ ec2.instances | map(attribute='public_ip') | list }}"
+
+    - name: Configure Nginx on Instances
+      hosts: "{{ instance_ips }}"
+      become: true
+      tasks:
+        - name: Install Nginx
+          apt:
+            name: nginx
+            state: present
+
+        - name: Create HTML File with Hostname/IP
+          template:
+            src: templates/index.html.j2
+            dest: /var/www/html/index.html
+          notify: Reload Nginx
+
+  handlers:
+    - name: Reload Nginx
+      service:
+        name: nginx
+        state: reloaded
+
+- name: Set Up ALB
+  hosts: localhost
+  gather_facts: false
+  vars:
+    lb_name: "my-lb"
+    security_group_id: "<your_security_group_id>"
+    subnet_id: "<your_subnet_id>"
+    vpc_id: "<your_vpc_id>"
+    region: "us-east-1"  # Replace with your desired AWS region
+    instance_ips: "{{ hostvars['localhost']['instance_ips'] }}"
+    domain_name: "<your_domain_name>"
+
+  tasks:
+    - name: Create ALB
+      community.aws.application_lb:
+        name: "{{ lb_name }}"
+        security_groups: ["{{ security_group_id }}"]
+        subnets: ["{{ subnet_id }}"]
+        wait: yes
+        region: "{{ region }}"
+        tags:
+          - key: Name
+            value: "{{ lb_name }}"
+
+    - name: Register Targets with ALB
+      community.aws.alb_target_group:
+        name: "web-target-group"
+        protocol: "HTTP"
+        port: 80
+        vpc_id: "{{ vpc_id }}"
+        target_type: "instance"
+        health_check_protocol: "HTTP"
+        health_check_path: "/"
+        health_check_interval_seconds: 30
+        health_check_timeout_seconds: 5
+        healthy_threshold_count: 2
+        unhealthy_threshold_count: 2
+        targets: "{{ instance_ips }}"
+        region: "{{ region }}"
+        state: present
+
+    - name: Create ALB Listener Rule
+      community.aws.alb_listener_rule:
+        listener_arn: "{{ lb_name.arn }}"
+        conditions:
+          - field: host-header
+            values: ["{{ domain_name }}"]
+        priority: 1
+        actions:
+          - type: forward
+            target_group_arn: "{{ 'arn:aws:elasticloadbalancing:us-east-1:' + vpc_id + ':targetgroup/web-target-group/' }}"
+        region: "{{ region }}"
+        state: present

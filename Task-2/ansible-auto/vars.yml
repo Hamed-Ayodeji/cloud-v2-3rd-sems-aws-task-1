@@ -1,0 +1,11 @@
+  aws_access_key: "<your_access_key>"
+  aws_secret_key: "<your_secret_key>"
+  keypair_name: "<your_keypair_name>"
+  security_group_id: "<your_security_group_id>"
+  subnet_id: "<your_subnet_id>"
+  vpc_id: "<your_vpc_id>"
+  region: "us-east-1"  # Replace with your desired AWS region
+  instance_type: "t2.micro"
+  ami_id: "ami-0c55b159cbfafe1f0"  # Ubuntu 20.04 LTS
+  domain_name: "<your_domain_name>"
+  lb_name: "my-lb"

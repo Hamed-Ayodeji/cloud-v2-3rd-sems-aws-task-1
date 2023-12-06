@@ -1,0 +1,20 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# this is just a simple test vagrantfile to test the playbook before running it on the real server
+# it will create a centos7 vm with 1GB of ram and ip
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "bento/ubuntu-20.04"
+  config.vm.hostname = "ubuntu2004"
+  config.vm.network "private_network", ip: "192.168.56.14"
+  config.vm.provider "virtualbox" do |vb|
+    vb.memory = "1024"
+  end
+  config.vm.provision "shell", inline: <<-SHELL
+    ssh_config_file="/etc/ssh/sshd_config"
+    sudo sed -i 's/^PasswordAuthentication yes/PasswordAuthentication no/' "$ssh_config_file"
+    sudo sed -i 's/^#PubkeyAuthentication yes/PubkeyAuthentication yes/' "$ssh_config_file"
+    sudo systemctl restart sshd || sudo service sshd restart
+  SHELL
+end
