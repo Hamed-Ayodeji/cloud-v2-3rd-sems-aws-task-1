@@ -173,7 +173,7 @@ resource "aws_key_pair" "key_pair" {
 
 resource "local_file" "priv-key" {
   content = tls_private_key.rsa_key.private_key_pem
-  filename = "${var.project_name}-priv-key.pem"
+  filename = "${var.project_name}-key-pair.pem"
 }
 
 data "aws_ami" "ubuntu" {
