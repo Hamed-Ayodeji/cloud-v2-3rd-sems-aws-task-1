@@ -161,6 +161,35 @@ resource "aws_security_group" "sg" {
   }
 }
 
+resource "aws_security_group" "alb-sg" {
+  name = "${var.project_name}-alb-sg"
+  description = "Allow http and https inbound and all outbound traffic"
+  vpc_id = aws_vpc.main.id
+
+  ingress {
+      description = "HTTP from VPC"
+      from_port = 80
+      to_port = 80
+      protocol = "tcp"
+      security_groups = [ aws_security_group.sg.id ]
+    }
+
+  ingress {
+      description = "HTTPS from VPC"
+      from_port = 443
+      to_port = 443
+      protocol = "tcp"
+      security_groups = [ aws_security_group.sg.id ]
+    }
+
+  egress {
+      from_port = 0
+      to_port = 0
+      protocol = "-1"
+      cidr_blocks = ["0.0.0.0/0"]
+    }
+}
+
 resource "tls_private_key" "rsa_key" {
   algorithm = "RSA"
   rsa_bits = 4096
@@ -231,5 +260,62 @@ resource "aws_instance" "private-ec2b" {
 
   tags = {
     Name = "${var.project_name}-private-ec2b"
+  }
+}
+
+resource "aws_lb" "alb" {
+  name = "${var.project_name}-alb"
+  internal = false
+  load_balancer_type = "application"
+  security_groups = [aws_security_group.alb-sg.id]
+  subnets = [aws_subnet.private-subnet.id, aws_subnet.public-subnet.id]
+
+  tags = {
+    Name = "${var.project_name}-alb"
+  }
+  
+}
+
+resource "aws_lb_target_group" "alb-tg" {
+  name = "${var.project_name}-alb-tg"
+  port = 80
+  protocol = "HTTP"
+  vpc_id = aws_vpc.main.id
+
+  health_check {
+    healthy_threshold = 2
+    unhealthy_threshold = 2
+    timeout = 3
+    interval = 30
+    path = "/"
+    port = "traffic-port"
+    protocol = "HTTP"
+  }
+
+  tags = {
+    Name = "${var.project_name}-alb-tg"
+  }
+}
+
+resource "aws_lb_target_group_attachment" "alb-tg-attachment1" {
+  target_group_arn = aws_lb_target_group.alb-tg.arn
+  target_id = aws_instance.private-ec2a.id
+  port = 80
+}
+
+resource "aws_lb_target_group_attachment" "alb-tg-attachment2" {
+  target_group_arn = aws_lb_target_group.alb-tg.arn
+  target_id = aws_instance.private-ec2b.id
+  port = 80
+}
+
+resource "aws_lb_listener" "alb-listener" {
+  load_balancer_arn = aws_lb.alb.arn
+  port = "80"
+  protocol = "HTTP"
+
+  default_action {
+    target_group_arn = aws_lb_target_group.alb-tg.arn
+    type = "forward"
   }
 }
