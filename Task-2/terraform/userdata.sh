@@ -13,7 +13,7 @@ sudo apt-get install software-properties-common -y
 sudo apt-add-repository ppa:ansible/ansible -y
 
 # install ansible
-sudo apt-get update -y
+sudo apt-get install ansible -y
 
 # install openssh-server
 sudo apt-get install openssh-server -y

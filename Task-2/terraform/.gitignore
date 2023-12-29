@@ -4,6 +4,7 @@
 .terraform.lock
 terraform.tfstate
 terraform.tfstate.backup
+terraform.tfvars
 
 # ignore ssh keys
 *.pub
