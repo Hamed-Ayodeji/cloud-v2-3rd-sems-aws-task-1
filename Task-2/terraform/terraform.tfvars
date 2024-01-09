@@ -1,7 +1,0 @@
-vpc_cidr_block="10.0.0.0/24"
-project_name="hp"
-public_subnet1_cidr_block="10.0.0.0/28"
-public_subnet2_cidr_block="10.0.0.16/28"
-private_subnet1_cidr_block="10.0.0.32/28"
-private_subnet2_cidr_block="10.0.0.48/28"
-instance_type="t2.micro"
